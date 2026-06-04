@@ -1,0 +1,30 @@
+# Core LLM & Agent Orchestration
+langchain
+langchain-openai
+langchain-community
+langchain-experimental
+langgraph
+openai
+
+# Web Search
+tavily-python
+
+# PDF Processing
+pymupdf
+
+# Frontend
+streamlit
+plotly
+
+# PDF Export
+fpdf2
+
+# Database
+# sqlite3 
+
+# Evaluation
+ragas
+
+# Environment & Utilities
+python-dotenv
+pydantic
