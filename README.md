@@ -1,4 +1,3 @@
-````markdown
 # ResearchMind 🔬
 
 An agentic research assistant that autonomously searches the web, executes code, reads documents,
@@ -156,4 +155,3 @@ ResearchMind/
 - _"What are the latest advancements in quantum computing?"_
 - _"What are the most recent breakthroughs in cancer immunotherapy and how do they compare to traditional chemotherapy?"_
 - _"What are the key differences between RAG and fine-tuning for LLMs?"_
-````
