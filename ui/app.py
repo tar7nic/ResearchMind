@@ -1,6 +1,12 @@
+import os
+os.environ.pop("SSL_CERT_FILE", None)
+os.environ.pop("REQUESTS_CA_BUNDLE", None)
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 import streamlit as st
 from storage.db import init_db
-
 init_db()
 
 st.set_page_config(

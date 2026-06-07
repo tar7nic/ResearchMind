@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 DB_PATH = Path(__file__).resolve().parent.parent / "researchmind.db"
-
+DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 def get_connection() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
