@@ -18,8 +18,9 @@ def get_search_tool(max_results: int = 5) -> TavilySearchResults:
 # --- Tool 2: Python REPL (Groq-compatible, rewritten) ---
 
 @tool
-def python_repl(code: str) -> str:
-    """Execute Python code for calculations, data analysis, or processing. Returns the output."""
+def python(code: str) -> str:
+    """Execute Python code for calculations or data processing.
+    Use print() to output any result you want returned."""
     import sys
     from io import StringIO
     old_stdout = sys.stdout
@@ -31,7 +32,7 @@ def python_repl(code: str) -> str:
         output = f"Error: {str(e)}"
     finally:
         sys.stdout = old_stdout
-    return output or "Code executed with no output."
+    return (output or "Code executed with no output. Use print() to show results.")[:4000]
 
 
 # --- Tool 3: Document Reader ---
@@ -56,6 +57,6 @@ def read_document(pdf_path: str) -> str:
 def get_all_tools(max_search_results: int = 5) -> list:
     return [
         get_search_tool(max_results=max_search_results),
-        python_repl,
+        python,          # was python_repl
         read_document,
     ]

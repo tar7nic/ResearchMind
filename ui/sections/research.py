@@ -71,7 +71,30 @@ def render():
                 "trace": [],
             }
 
-            result = research_graph.invoke(initial_state)
+            final_state = dict(initial_state)
+            try:
+                for update in research_graph.stream(
+                    initial_state,
+                    config={"recursion_limit": 25},
+                    stream_mode="updates",
+                ):
+                    for node, delta in update.items():
+                        st.write(f"✅ `{node}` done")
+                        if isinstance(delta, dict):
+                            # Append trace entries rather than overwriting completely if list
+                            if "trace" in delta and isinstance(delta["trace"], list):
+                                final_state["trace"] = final_state.get("trace", []) + delta["trace"]
+                                delta_copy = dict(delta)
+                                del delta_copy["trace"]
+                                final_state.update(delta_copy)
+                            else:
+                                final_state.update(delta)
+            except Exception as e:
+                status.update(label="❌ Research failed", state="error")
+                st.exception(e)
+                st.stop()
+
+            result = final_state
 
             # Cleanup temp PDF
             if pdf_path and os.path.exists(pdf_path):

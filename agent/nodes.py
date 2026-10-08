@@ -1,12 +1,16 @@
+import os
+import json
+import operator
+from typing import TypedDict, Annotated
+
+from groq import BadRequestError
 from langchain_groq import ChatGroq
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
+
 from agent.tools import get_all_tools
 from agent.judge import run_judge
 from storage.db import save_research_record
-from typing import TypedDict, Annotated
-import json
-import operator
 
 
 # --- Agent State ---
@@ -33,8 +37,15 @@ def _tc_to_dict(tc) -> dict:
         return {"name": str(tc), "args": {}, "id": ""}
 
 
-def _get_llm(tools: list = None):
-    llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0)
+def _get_llm(tools: list = None, model: str = None):
+    llm = ChatGroq(
+        model=model or os.getenv("AGENT_MODEL", "openai/gpt-oss-120b"),
+        temperature=0,
+        max_tokens=8192,
+        reasoning_effort="low",
+        timeout=60,
+        max_retries=2,
+    )
     if tools:
         return llm.bind_tools(tools)
     return llm
@@ -44,11 +55,10 @@ def _get_llm(tools: list = None):
 
 def supervisor_node(state: AgentState, config: RunnableConfig) -> AgentState:
     tools = get_all_tools()
-    llm_with_tools = _get_llm(tools=tools)
 
     system_prompt = """You are a research assistant with access to the following tools:
 1. tavily_search_results_json — search the web for current information
-2. python_repl — execute Python code for calculations or data processing
+2. python — execute Python code for multi-step calculations or data processing
 3. read_document — read and extract text from an uploaded PDF
 
 Your job is to:
@@ -56,6 +66,12 @@ Your job is to:
 - Call the appropriate tools to gather information
 - Call multiple tools if needed to fully answer the query
 - Be thorough and systematic
+- Stop calling tools once you have enough information
+
+Rules:
+- Do simple arithmetic yourself; only use `python` for complex calculations, and always print() results.
+- Always call tools with valid JSON arguments.
+- Only use the tools listed above.
 
 Always cite which tool provided which information."""
 
@@ -63,7 +79,22 @@ Always cite which tool provided which information."""
     messages.append(HumanMessage(content=state["text_context"]))
     messages.extend(state["messages"])
 
-    response = _get_llm(tools=tools).invoke(messages, config=config)
+    response = None
+    for _ in range(3):
+        try:
+            response = _get_llm(tools=tools).invoke(messages, config=config)
+            break
+        except BadRequestError as e:
+            if "tool_use_failed" not in str(e):
+                raise
+            messages.append(HumanMessage(
+                content="Your last tool call was malformed. Retry with valid JSON "
+                        "arguments, or answer without tools."
+            ))
+
+    if response is None:
+        # Final fallback: answer without tools so the graph can move on to synthesis
+        response = _get_llm().invoke(messages, config=config)
 
     trace_entry = {
         "node": "supervisor",
@@ -133,8 +164,9 @@ def tool_executor_node(state: AgentState, config: RunnableConfig) -> AgentState:
 def synthesis_node(state: AgentState, config: RunnableConfig) -> AgentState:
     llm = _get_llm()
 
+    # Truncate each tool output so large PDFs / search results don't exceed Groq request limits
     tool_outputs_text = "\n\n".join([
-        f"### Tool: {t['tool']}\n**Args:** {t['args']}\n**Output:**\n{t['output']}"
+        f"### Tool: {t['tool']}\n**Args:** {t['args']}\n**Output:**\n{t['output'][:4000]}"
         for t in state.get("tool_outputs", [])
     ])
 
